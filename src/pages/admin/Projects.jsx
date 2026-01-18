@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import AdminLayout from "../../layouts/AdminLayout";
 import { supabase } from "../../supabase";
+import { Spinner } from "../../components/Spinner";
 
 function Projects() {
   const [projects, setProjects] = useState([]);
@@ -19,6 +20,7 @@ function Projects() {
   }, []);
 
   const fetchProjects = async () => {
+    const startTime = Date.now();
     try {
       setLoading(true);
       const { data, error } = await supabase
@@ -29,9 +31,14 @@ function Projects() {
       if (error) throw error;
       setProjects(data || []);
     } catch (err) {
-      console.error(err);
+      // Error handled silently
     } finally {
-      setLoading(false);
+      // Ensure minimum 3 seconds loading time
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, 3000 - elapsed);
+      setTimeout(() => {
+        setLoading(false);
+      }, remaining);
     }
   };
 
@@ -77,7 +84,6 @@ function Projects() {
       setEditingId(null);
       fetchProjects();
     } catch (err) {
-      console.error(err);
       alert("Failed to save project: " + err.message);
     } finally {
       setSubmitting(false);
@@ -98,7 +104,6 @@ function Projects() {
       if (error) throw error;
       fetchProjects();
     } catch (err) {
-      console.error(err);
       alert("Failed to delete: " + err.message);
     }
   };
@@ -155,7 +160,7 @@ function Projects() {
       {/* Projects List */}
       <div style={{ marginTop: 24 }}>
         {loading ? (
-          <p style={muted}>Loading projects...</p>
+          <Spinner />
         ) : projects.length === 0 ? (
           <div style={cardStyle}>
             <p style={muted}>No projects yet. Create your first project above.</p>

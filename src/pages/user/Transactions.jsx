@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import UserLayout from "../../layouts/UserLayout";
 import { supabase } from "../../supabase";
+import { Spinner } from "../../components/Spinner";
 
 function Transactions() {
   const [transactions, setTransactions] = useState([]);
@@ -8,34 +9,55 @@ function Transactions() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    let isMounted = true;
+
+    const fetchTransactions = async () => {
+      const startTime = Date.now();
+      try {
+        if (!isMounted) return;
+        setLoading(true);
+
+        const { data, error } = await supabase
+          .from("transactions")
+          .select("id, txn_id, title, amount, type, created_at")
+          .order("created_at", { ascending: false });
+
+        if (error) throw error;
+
+        if (isMounted) {
+          setTransactions(data || []);
+        }
+      } catch (err) {
+        // Ignore AbortError but still set loading to false
+        if (err.name === 'AbortError' || err.message?.includes('AbortError')) {
+          // Don't log or show error for AbortError
+        } else if (isMounted) {
+          setError("Failed to load transactions");
+        }
+      } finally {
+        // Ensure minimum 3 seconds loading time
+        const elapsed = Date.now() - startTime;
+        const remaining = Math.max(0, 3000 - elapsed);
+        setTimeout(() => {
+          if (isMounted) {
+            setLoading(false);
+          }
+        }, remaining);
+      }
+    };
+
     fetchTransactions();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
-
-  const fetchTransactions = async () => {
-    try {
-      setLoading(true);
-
-      const { data, error } = await supabase
-        .from("transactions")
-        .select("id, txn_id, title, amount, type, created_at")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-
-      setTransactions(data || []);
-    } catch (err) {
-      console.error(err);
-      setError("Failed to load transactions");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <UserLayout>
       <h1 style={{ fontSize: 28, marginBottom: 20 }}>Transactions</h1>
 
-      {loading && <p>Loading transactions…</p>}
+      {loading && <Spinner />}
       {error && <p style={{ color: "red" }}>{error}</p>}
 
       {!loading && !error && (

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { supabase } from "../../supabase";
 import { useNavigate, Link } from "react-router-dom";
+import { useToast } from "../../context/ToastContext";
 
 function Login() {
   const [email, setEmail] = useState("");
@@ -8,6 +9,7 @@ function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
+  const { addToast } = useToast();
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -51,17 +53,18 @@ function Login() {
           email: user.email,
           role: "user"
         }]);
+        addToast("Login successful!", "success");
         navigate("/home");
         return;
       }
 
+      addToast("Login successful!", "success");
       if (profile.role === "admin") {
         navigate("/admin");
       } else {
         navigate("/home");
       }
     } catch (err) {
-      console.error(err);
       setError("An unexpected error occurred");
     } finally {
       setLoading(false);

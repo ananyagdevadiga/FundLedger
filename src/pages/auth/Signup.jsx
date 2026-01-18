@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { supabase } from "../../supabase";
 import { useNavigate, Link } from "react-router-dom";
+import { useToast } from "../../context/ToastContext";
 
 function Signup() {
   const [name, setName] = useState("");
@@ -10,6 +11,7 @@ function Signup() {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
   const navigate = useNavigate();
+  const { addToast } = useToast();
 
   const handleSignup = async (e) => {
     e.preventDefault();
@@ -53,18 +55,16 @@ function Signup() {
         role: "user"
       }]);
 
-      if (profileError) {
-        console.error("Profile creation error:", profileError);
-      }
+      // Profile error handled silently
 
       // Check if email confirmation is required
       if (data.session) {
+        addToast("Account created successfully!", "success");
         navigate("/home");
       } else {
         setSuccess(true);
       }
     } catch (err) {
-      console.error(err);
       setError("An unexpected error occurred");
     } finally {
       setLoading(false);

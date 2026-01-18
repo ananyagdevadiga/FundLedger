@@ -1,13 +1,23 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 
 function AdminSidebar() {
   const navigate = useNavigate();
   const { signOut } = useAuth();
+  const { addToast } = useToast();
 
   const handleLogout = async () => {
-    await signOut();
-    navigate("/home");
+    try {
+      await signOut();
+      addToast("Signed out successfully", "success");
+      // Small delay to allow sign out to complete
+      setTimeout(() => {
+        navigate("/home");
+      }, 100);
+    } catch (err) {
+      navigate("/home");
+    }
   };
 
   return (

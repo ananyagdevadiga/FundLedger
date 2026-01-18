@@ -45,7 +45,6 @@ function AdminQRScanner() {
       setQrDataUrl(qrUrl);
       setTxn(data);
     } catch (err) {
-      console.error(err);
       setError("Failed to read QR data");
     }
   };
