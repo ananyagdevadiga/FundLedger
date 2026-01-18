@@ -11,6 +11,7 @@ function AdminTransactions() {
   const [showForm, setShowForm] = useState(false);
   const [showQR, setShowQR] = useState(null);
   const [qrDataUrl, setQrDataUrl] = useState("");
+  const [editingTxn, setEditingTxn] = useState(null);
 
   const [form, setForm] = useState({
     title: "",
@@ -105,6 +106,56 @@ function AdminTransactions() {
     }
   };
 
+  const handleEdit = (txn) => {
+    setEditingTxn(txn);
+    setForm({
+      title: txn.title || "",
+      description: txn.description || "",
+      amount: txn.amount.toString(),
+      type: txn.type
+    });
+    setShowForm(false);
+  };
+
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+
+    if (!form.title || !form.amount) {
+      alert("Please fill required fields");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+
+      const { error } = await supabase
+        .from("transactions")
+        .update({
+          title: form.title,
+          description: form.description,
+          amount: Number(form.amount),
+          type: form.type
+        })
+        .eq("id", editingTxn.id);
+
+      if (error) throw error;
+
+      setForm({ title: "", description: "", amount: "", type: "credit" });
+      setEditingTxn(null);
+      fetchTransactions();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to update transaction");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const cancelEdit = () => {
+    setEditingTxn(null);
+    setForm({ title: "", description: "", amount: "", type: "credit" });
+  };
+
   return (
     <AdminLayout>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
@@ -127,7 +178,7 @@ function AdminTransactions() {
       )}
 
       {/* Add Form */}
-      {showForm && (
+      {showForm && !editingTxn && (
         <div style={cardStyle}>
           <h3 style={{ marginBottom: 16 }}>New Transaction</h3>
           <form onSubmit={handleSubmit}>
@@ -189,6 +240,75 @@ function AdminTransactions() {
         </div>
       )}
 
+      {/* Edit Form */}
+      {editingTxn && (
+        <div style={cardStyle}>
+          <h3 style={{ marginBottom: 16 }}>Edit Transaction</h3>
+          <p style={{ ...muted, marginBottom: 16 }}>Txn ID: {editingTxn.txn_id}</p>
+          <form onSubmit={handleUpdate}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <input
+                name="title"
+                placeholder="Title *"
+                value={form.title}
+                onChange={handleChange}
+                style={inputStyle}
+              />
+              <input
+                name="amount"
+                type="number"
+                placeholder="Amount (₹) *"
+                value={form.amount}
+                onChange={handleChange}
+                style={inputStyle}
+              />
+            </div>
+
+            <textarea
+              name="description"
+              placeholder="Description (optional)"
+              value={form.description}
+              onChange={handleChange}
+              rows={3}
+              style={{ ...inputStyle, resize: "none", marginTop: 16 }}
+            />
+
+            <div style={{ display: "flex", gap: 16, marginTop: 16, alignItems: "center" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                <input
+                  type="radio"
+                  name="type"
+                  value="credit"
+                  checked={form.type === "credit"}
+                  onChange={handleChange}
+                />
+                <span style={{ color: "#34d399" }}>Credit (Add Funds)</span>
+              </label>
+
+              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                <input
+                  type="radio"
+                  name="type"
+                  value="debit"
+                  checked={form.type === "debit"}
+                  onChange={handleChange}
+                />
+                <span style={{ color: "#f87171" }}>Debit (Deduct Funds)</span>
+              </label>
+
+              <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+                <button type="button" onClick={cancelEdit} style={secondaryBtn}>
+                  Cancel
+                </button>
+                <button type="submit" disabled={submitting} style={primaryBtn}>
+                  {submitting ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      )}
+
       {/* Transactions Table */}
       <div style={{ ...cardStyle, marginTop: 20 }}>
         {loading ? (
@@ -227,10 +347,26 @@ function AdminTransactions() {
                   </td>
                   <td style={{ ...td, textAlign: "center" }}>
                     <button onClick={() => handleShowQR(txn.txn_id)} style={iconBtn} title="View QR">
-                      📱
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="3" width="7" height="7"></rect>
+                        <rect x="3" y="14" width="7" height="7"></rect>
+                        <rect x="14" y="14" width="7" height="7"></rect>
+                      </svg>
+                    </button>
+                    <button onClick={() => handleEdit(txn)} style={{ ...iconBtn, marginLeft: 8 }} title="Edit">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                      </svg>
                     </button>
                     <button onClick={() => handleDelete(txn.id)} style={{ ...iconBtn, marginLeft: 8 }} title="Delete">
-                      🗑️
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        <line x1="10" y1="11" x2="10" y2="17"></line>
+                        <line x1="14" y1="11" x2="14" y2="17"></line>
+                      </svg>
                     </button>
                   </td>
                 </tr>
@@ -285,8 +421,13 @@ const iconBtn = {
   background: "transparent",
   border: "none",
   cursor: "pointer",
-  fontSize: 18,
-  padding: 4
+  padding: "6px",
+  borderRadius: "4px",
+  color: "#9ca3af",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  transition: "color 0.2s"
 };
 
 const theadStyle = {
