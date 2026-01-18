@@ -1,12 +1,14 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useState } from "react";
+import { useToast } from "../context/ToastContext";
 
 function UserSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, role, signOut } = useAuth();
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const { addToast } = useToast();
 
   const navItem = (path, label) => (
     <Link
@@ -27,10 +29,20 @@ function UserSidebar() {
 
   const handleSignOut = async () => {
     if (isSigningOut) return;
-    setIsSigningOut(true);
-    await signOut();
-    navigate("/home");
-    setIsSigningOut(false);
+    
+    try {
+      setIsSigningOut(true);
+      await signOut();
+      addToast("Signed out successfully", "success");
+      // Small delay to allow sign out to complete
+      setTimeout(() => {
+        navigate("/home");
+        setIsSigningOut(false);
+      }, 100);
+    } catch (err) {
+      setIsSigningOut(false);
+      navigate("/home");
+    }
   };
 
   return (

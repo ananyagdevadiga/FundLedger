@@ -1,18 +1,22 @@
 import { useEffect, useState } from "react";
 import AdminLayout from "../../layouts/AdminLayout";
 import { supabase } from "../../supabase";
+import { Spinner } from "../../components/Spinner";
+import { useToast } from "../../context/ToastContext";
 
 function AdminAnnouncements() {
   const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
+  const { addToast } = useToast();
 
   useEffect(() => {
     fetchAnnouncements();
   }, []);
 
   const fetchAnnouncements = async () => {
+    const startTime = Date.now();
     try {
       setLoading(true);
       const { data, error } = await supabase
@@ -23,9 +27,14 @@ function AdminAnnouncements() {
       if (error) throw error;
       setAnnouncements(data || []);
     } catch (err) {
-      console.error(err);
+      // Error handled silently
     } finally {
-      setLoading(false);
+      // Ensure minimum 3 seconds loading time
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, 3000 - elapsed);
+      setTimeout(() => {
+        setLoading(false);
+      }, remaining);
     }
   };
 
@@ -51,9 +60,9 @@ function AdminAnnouncements() {
       if (error) throw error;
 
       setMessage("");
+      addToast("Announcement posted successfully!", "success");
       fetchAnnouncements();
     } catch (err) {
-      console.error(err);
       alert("Failed to post announcement: " + err.message);
     } finally {
       setSubmitting(false);
@@ -66,9 +75,9 @@ function AdminAnnouncements() {
     try {
       const { error } = await supabase.from("announcements").delete().eq("id", id);
       if (error) throw error;
+      addToast("Announcement deleted", "success");
       fetchAnnouncements();
     } catch (err) {
-      console.error(err);
       alert("Failed to delete: " + err.message);
     }
   };
@@ -89,7 +98,7 @@ function AdminAnnouncements() {
       // Get current user
       const { data: { user } } = await supabase.auth.getUser();
 
-      const msg = `📊 Fund Update: Our current total fund stands at ₹${balance.toLocaleString()}`;
+      const msg = `Fund Update: Our current total fund stands at ₹${balance.toLocaleString()}`;
 
       const { error } = await supabase.from("announcements").insert([{ 
         message: msg,
@@ -97,9 +106,9 @@ function AdminAnnouncements() {
       }]);
       
       if (error) throw error;
+      addToast("Fund update posted!", "success");
       fetchAnnouncements();
     } catch (err) {
-      console.error(err);
       alert("Failed to post fund update: " + err.message);
     }
   };
@@ -123,8 +132,13 @@ function AdminAnnouncements() {
             <button type="submit" disabled={submitting} style={primaryBtn}>
               {submitting ? "Posting..." : "Post Announcement"}
             </button>
-            <button type="button" onClick={postFundUpdate} style={secondaryBtn}>
-              📊 Post Fund Update
+            <button type="button" onClick={postFundUpdate} style={{...secondaryBtn, display: "flex", alignItems: "center", gap: "8px"}}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <rect x="3" y="14" width="4" height="7" rx="1" fill="#60a5fa"/>
+                <rect x="10" y="8" width="4" height="13" rx="1" fill="#60a5fa"/>
+                <rect x="17" y="3" width="4" height="18" rx="1" fill="#60a5fa"/>
+              </svg>
+              Post Fund Update
             </button>
           </div>
         </form>
@@ -135,7 +149,7 @@ function AdminAnnouncements() {
         <h3 style={{ marginBottom: 16 }}>All Announcements</h3>
 
         {loading ? (
-          <p style={muted}>Loading...</p>
+          <Spinner />
         ) : announcements.length === 0 ? (
           <div style={cardStyle}>
             <p style={muted}>No announcements yet</p>

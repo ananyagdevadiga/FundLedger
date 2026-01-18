@@ -1,5 +1,6 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { Spinner } from "./Spinner";
 
 // For admin-only routes
 export function AdminRoute({ children }) {
@@ -15,7 +16,7 @@ export function AdminRoute({ children }) {
         alignItems: "center",
         color: "white" 
       }}>
-        <p>Loading...</p>
+        <Spinner size={40} />
       </div>
     );
   }
@@ -45,7 +46,7 @@ export function PrivateRoute({ children }) {
         alignItems: "center",
         color: "white" 
       }}>
-        <p>Loading...</p>
+        <Spinner size={40} />
       </div>
     );
   }

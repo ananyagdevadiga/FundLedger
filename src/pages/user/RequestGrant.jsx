@@ -2,9 +2,12 @@ import { useEffect, useState } from "react";
 import UserLayout from "../../layouts/UserLayout";
 import { supabase } from "../../supabase";
 import { useNavigate } from "react-router-dom";
+import { Spinner } from "../../components/Spinner";
+import { useToast } from "../../context/ToastContext";
 
 function RequestGrant() {
   const navigate = useNavigate();
+  const { addToast } = useToast();
 
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -22,19 +25,48 @@ function RequestGrant() {
   });
 
   useEffect(() => {
-    checkAuth();
-  }, []);
+    let isMounted = true;
 
-  const checkAuth = async () => {
-    const { data } = await supabase.auth.getUser();
-    if (!data.user) {
-      navigate("/login");
-      return;
-    }
-    setUser(data.user);
-    setForm(prev => ({ ...prev, email: data.user.email }));
-    setLoading(false);
-  };
+    const checkAuth = async () => {
+      const startTime = Date.now();
+      try {
+        const { data } = await supabase.auth.getUser();
+        if (!isMounted) return;
+        
+        if (!data.user) {
+          navigate("/login");
+          return;
+        }
+        if (isMounted) {
+          setUser(data.user);
+          setForm(prev => ({ ...prev, email: data.user.email }));
+        }
+      } catch (err) {
+        // Ignore AbortError
+        if (err.name === 'AbortError' || err.message?.includes('AbortError')) {
+          return;
+        }
+        if (isMounted) {
+          console.error(err);
+        }
+      } finally {
+        // Ensure minimum 3 seconds loading time
+        const elapsed = Date.now() - startTime;
+        const remaining = Math.max(0, 3000 - elapsed);
+        setTimeout(() => {
+          if (isMounted) {
+            setLoading(false);
+          }
+        }, remaining);
+      }
+    };
+
+    checkAuth();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [navigate]);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -67,7 +99,7 @@ function RequestGrant() {
 
       if (error) throw error;
 
-      setSuccess("Grant request submitted successfully");
+      addToast("Grant request submitted successfully!", "success");
       setForm({
         name: "",
         phone: "",
@@ -77,14 +109,13 @@ function RequestGrant() {
         description: ""
       });
     } catch (err) {
-      console.error(err);
-      setError("Failed to submit grant request");
+      addToast("Failed to submit grant request", "error");
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (loading) return <UserLayout><p>Loading…</p></UserLayout>;
+  if (loading) return <UserLayout><Spinner /></UserLayout>;
 
   return (
     <UserLayout>

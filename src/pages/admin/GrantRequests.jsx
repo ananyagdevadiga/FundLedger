@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import AdminLayout from "../../layouts/AdminLayout";
 import { supabase } from "../../supabase";
 import { generateTxnId } from "../../utils/txn";
+import { Spinner } from "../../components/Spinner";
 
 function GrantRequests() {
   const [requests, setRequests] = useState([]);
@@ -14,6 +15,7 @@ function GrantRequests() {
   }, [filter]);
 
   const fetchRequests = async () => {
+    const startTime = Date.now();
     try {
       setLoading(true);
 
@@ -31,9 +33,14 @@ function GrantRequests() {
 
       setRequests(data || []);
     } catch (err) {
-      console.error(err);
+      // Error handled silently
     } finally {
-      setLoading(false);
+      // Ensure minimum 3 seconds loading time
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, 3000 - elapsed);
+      setTimeout(() => {
+        setLoading(false);
+      }, remaining);
     }
   };
 
@@ -73,7 +80,6 @@ function GrantRequests() {
         }]);
 
         if (projectError) {
-          console.error("Project creation error:", projectError);
           alert("Grant approved but failed to add project: " + projectError.message);
         }
       }
@@ -88,7 +94,6 @@ function GrantRequests() {
 
       fetchRequests();
     } catch (err) {
-      console.error(err);
       alert("Failed to approve grant: " + err.message);
     } finally {
       setProcessingId(null);
@@ -110,7 +115,6 @@ function GrantRequests() {
 
       fetchRequests();
     } catch (err) {
-      console.error(err);
       alert("Failed to reject grant: " + err.message);
     } finally {
       setProcessingId(null);
@@ -153,7 +157,7 @@ function GrantRequests() {
 
       {/* Requests List */}
       {loading ? (
-        <p style={muted}>Loading requests...</p>
+        <Spinner />
       ) : requests.length === 0 ? (
         <div style={cardStyle}>
           <p style={muted}>No {filter === "all" ? "" : filter} grant requests</p>

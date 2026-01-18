@@ -9,57 +9,72 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const signingOutRef = useRef(false);
 
-  const fetchUserRole = async (userId) => {
+  const fetchUserRole = async (userId, isMounted) => {
     try {
-      console.log("Fetching role for user:", userId);
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout')), 5000)
+      );
       
-      const { data, error } = await supabase
+      const fetchPromise = supabase
         .from("profiles")
         .select("role")
         .eq("id", userId)
         .single();
 
-      console.log("Role query result:", { data, error });
+      const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
 
       if (error) {
-        console.error("Error fetching role:", error);
-        setRole("user");
+        // Ignore AbortError
+        if (error.message?.includes('AbortError') || error.details?.includes('AbortError')) {
+          return;
+        }
+        if (isMounted()) {
+          setRole("user");
+        }
         return;
       }
 
-      setRole(data?.role || "user");
+      if (isMounted()) {
+        setRole(data?.role || "user");
+      }
     } catch (err) {
-      console.error("Role fetch error:", err);
-      setRole("user");
+      // Ignore AbortError, handle timeout
+      if (err.name === 'AbortError' || err.message?.includes('AbortError')) {
+        return;
+      }
+      // On timeout or other error, default to user role
+      if (isMounted()) {
+        setRole("user");
+      }
     }
   };
 
   useEffect(() => {
     let isMounted = true;
+    const checkMounted = () => isMounted;
 
     const initAuth = async () => {
       try {
-        console.log("Initializing auth...");
-        
         const { data: { session }, error } = await supabase.auth.getSession();
         
-        if (error) {
+        // Ignore AbortError
+        if (error && !error.message?.includes('AbortError')) {
           console.error("Session error:", error);
         }
         
-        console.log("Session result:", session ? "Found user" : "No session");
-        
         if (session?.user && isMounted) {
           setUser(session.user);
-          await fetchUserRole(session.user.id);
+          await fetchUserRole(session.user.id, checkMounted);
         }
       } catch (err) {
+        // Ignore AbortError but still set loading to false
         console.error("Auth init error:", err);
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-          console.log("Auth loading complete");
-        }
+      }
+      
+      // Always set loading to false after init completes
+      if (isMounted) {
+        setLoading(false);
       }
     };
 
@@ -68,13 +83,11 @@ export function AuthProvider({ children }) {
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log("Auth event:", event);
-        
         if (!isMounted) return;
         
         if (event === "SIGNED_IN" && session?.user) {
           setUser(session.user);
-          await fetchUserRole(session.user.id);
+          await fetchUserRole(session.user.id, checkMounted);
           setLoading(false);
         } else if (event === "SIGNED_OUT") {
           setUser(null);
@@ -94,24 +107,19 @@ export function AuthProvider({ children }) {
 
   const signOut = async () => {
     if (signingOutRef.current) {
-      console.log("Already signing out, skipping...");
       return;
     }
     
     signingOutRef.current = true;
-    console.log("Signing out...");
     
     try {
       const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.error("Sign out error:", error);
-      } else {
-        console.log("Signed out successfully");
+      if (!error) {
         setUser(null);
         setRole(null);
       }
     } catch (err) {
-      console.error("Sign out exception:", err);
+      // Handle sign out error silently
     } finally {
       signingOutRef.current = false;
     }

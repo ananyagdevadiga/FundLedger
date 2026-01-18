@@ -3,6 +3,8 @@ import AdminLayout from "../../layouts/AdminLayout";
 import { supabase } from "../../supabase";
 import { generateTxnId } from "../../utils/txn";
 import QRCode from "qrcode";
+import { Spinner } from "../../components/Spinner";
+import { useToast } from "../../context/ToastContext";
 
 function AdminTransactions() {
   const [transactions, setTransactions] = useState([]);
@@ -25,6 +27,7 @@ function AdminTransactions() {
   }, []);
 
   const fetchTransactions = async () => {
+    const startTime = Date.now();
     try {
       setLoading(true);
       const { data, error } = await supabase
@@ -35,9 +38,14 @@ function AdminTransactions() {
       if (error) throw error;
       setTransactions(data || []);
     } catch (err) {
-      console.error(err);
+      // Error handled silently
     } finally {
-      setLoading(false);
+      // Ensure minimum 3 seconds loading time
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, 3000 - elapsed);
+      setTimeout(() => {
+        setLoading(false);
+      }, remaining);
     }
   };
 
@@ -78,10 +86,10 @@ function AdminTransactions() {
 
       setForm({ title: "", description: "", amount: "", type: "credit" });
       setShowForm(false);
+      addToast("Transaction created successfully!", "success");
       fetchTransactions();
     } catch (err) {
-      console.error(err);
-      alert("Failed to create transaction");
+      addToast("Failed to create transaction", "error");
     } finally {
       setSubmitting(false);
     }
@@ -101,7 +109,6 @@ function AdminTransactions() {
       if (error) throw error;
       fetchTransactions();
     } catch (err) {
-      console.error(err);
       alert("Failed to delete: " + err.message);
     }
   };
@@ -312,7 +319,7 @@ function AdminTransactions() {
       {/* Transactions Table */}
       <div style={{ ...cardStyle, marginTop: 20 }}>
         {loading ? (
-          <p style={muted}>Loading transactions...</p>
+          <Spinner />
         ) : transactions.length === 0 ? (
           <p style={muted}>No transactions yet. Add your first transaction above.</p>
         ) : (
