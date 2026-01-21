@@ -1,21 +1,40 @@
 import AdminSidebar from "../components/AdminSidebar";
 import Topbar from "../components/Topbar";
+import { colors, spacing } from "../styles/theme";
 
 function AdminLayout({ children }) {
   return (
-    <div style={{ display: "flex", minHeight: "100vh" }}>
-      {/* Admin Sidebar */}
+    <div style={layoutContainer}>
       <AdminSidebar />
-
-      {/* Main content */}
-      <div style={{ flex: 1, background: "#0b0e14", color: "white" }}>
-        <Topbar />
-        <div style={{ padding: "20px" }}>
+      <div style={mainContent}>
+        <Topbar isAdmin />
+        <main style={contentArea}>
           {children}
-        </div>
+        </main>
       </div>
     </div>
   );
 }
+
+const layoutContainer = {
+  display: "flex",
+  minHeight: "100vh",
+  background: colors.bgPrimary,
+};
+
+const mainContent = {
+  flex: 1,
+  display: "flex",
+  flexDirection: "column",
+  color: colors.textPrimary,
+  minWidth: 0,
+  marginLeft: "280px", // Account for fixed sidebar
+};
+
+const contentArea = {
+  padding: spacing.lg,
+  flex: 1,
+  overflowY: "auto",
+};
 
 export default AdminLayout;

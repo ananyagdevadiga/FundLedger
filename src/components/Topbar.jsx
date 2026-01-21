@@ -1,23 +1,34 @@
-function Topbar() {
-  return (
-    <div style={{
-      height: "60px",
-      background: "#0b0e14",
-      borderBottom: "1px solid #1f2933",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "space-between",
-      padding: "0 20px"
-    }}>
-      <span style={{ color: "#9ca3af", fontSize: 14 }}>
-        🌐 This organization has made their finances public.
-      </span>
+import { colors, spacing } from "../styles/theme";
 
-      <div style={{ display: "flex", gap: "10px" }}>
-        {/* Buttons removed - donations not needed */}
+function Topbar({ isAdmin = false }) {
+  return (
+    <header style={headerStyle}>
+      <div style={{ 
+        flex: 1,
+        display: "flex", 
+        alignItems: "center", 
+        justifyContent: "center",
+      }}>
+        <span style={{ 
+          color: colors.textMuted, 
+          fontSize: "13px", 
+          fontWeight: 600 
+        }}>
+          {isAdmin ? "Admin Control Panel" : "This organization has made their finances public"}
+        </span>
       </div>
-    </div>
+    </header>
   );
 }
+
+const headerStyle = {
+  height: "48px",
+  background: colors.bgSecondary,
+  borderBottom: `1px solid ${colors.border}`,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: `0 ${spacing.lg}`,
+};
 
 export default Topbar;

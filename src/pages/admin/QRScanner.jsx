@@ -3,11 +3,13 @@ import AdminLayout from "../../layouts/AdminLayout";
 import { Html5QrcodeScanner } from "html5-qrcode";
 import { supabase } from "../../supabase";
 import QRCode from "qrcode";
+import { colors, spacing, borderRadius, cardStyle as themeCard } from "../../styles/theme";
 
 function AdminQRScanner() {
   const [txn, setTxn] = useState(null);
   const [error, setError] = useState(null);
   const [qrDataUrl, setQrDataUrl] = useState("");
+  const [scanning, setScanning] = useState(true);
 
   useEffect(() => {
     const scanner = new Html5QrcodeScanner(
@@ -28,11 +30,23 @@ function AdminQRScanner() {
       setError(null);
       setTxn(null);
       setQrDataUrl("");
+      setScanning(false);
+
+      // Try to parse as JSON (new format with full transaction details)
+      let txnData;
+      try {
+        txnData = JSON.parse(decodedText);
+      } catch {
+        // If not JSON, treat as legacy txn_id format
+        txnData = null;
+      }
+
+      const txnId = txnData?.txn_id || decodedText;
 
       const { data, error: fetchError } = await supabase
         .from("transactions")
         .select("*")
-        .eq("txn_id", decodedText)
+        .eq("txn_id", txnId)
         .single();
 
       if (fetchError || !data) {
@@ -55,80 +69,125 @@ function AdminQRScanner() {
 
   return (
     <AdminLayout>
-      <h1 style={{ fontSize: 28, marginBottom: 24 }}>Scan Transaction QR</h1>
+      {/* Header (icon removed) */}
+      <div style={headerSection}>
+        <div>
+          <h1 style={pageTitle}>Scan Transaction QR</h1>
+          <p style={pageSubtitle}>Verify and view transaction details</p>
+        </div>
+      </div>
 
-      <div style={{ display: "flex", gap: 30, flexWrap: "wrap" }}>
-        {/* Scanner */}
-        <div style={cardStyle}>
-          <h3 style={{ marginBottom: 16 }}>QR Scanner</h3>
-          <div id="admin-qr-reader" />
+      <div style={contentGrid}>
+        {/* Scanner Card */}
+        <div style={scannerCard}>
+          <div style={scannerHeader}>
+            <div style={pulsingDot} />
+            <span style={scannerStatus}>
+              {scanning ? "Scanner Active" : "Scan Complete"}
+            </span>
+          </div>
+          <div id="admin-qr-reader" style={scannerArea} />
+          <p style={scannerHint}>Position QR code within the frame</p>
         </div>
 
-        {/* Result */}
-        <div style={{ ...cardStyle, minWidth: 350, flex: 1 }}>
-          <h3 style={{ marginBottom: 16 }}>Transaction Details</h3>
+        {/* Result Card */}
+        <div style={resultCard}>
+          <h3 style={resultTitle}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+            </svg>
+            Transaction Details
+          </h3>
 
-          {error && <p style={{ color: "#f87171" }}>{error}</p>}
+          {error && (
+            <div style={errorBox}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="15" y1="9" x2="9" y2="15"/>
+                <line x1="9" y1="9" x2="15" y2="15"/>
+              </svg>
+              {error}
+            </div>
+          )}
 
           {!txn && !error && (
-            <p style={muted}>Scan a transaction QR code to view its details</p>
+            <div style={placeholderBox}>
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="7" height="7"/>
+                <rect x="14" y="3" width="7" height="7"/>
+                <rect x="14" y="14" width="7" height="7"/>
+                <rect x="3" y="14" width="7" height="7"/>
+              </svg>
+              <p style={placeholderText}>Scan a transaction QR code to view its details</p>
+            </div>
           )}
 
           {txn && (
-            <div style={{ display: "flex", gap: 24 }}>
-              <div style={{ flex: 1 }}>
+            <div style={detailsLayout}>
+              <div style={detailsContainer}>
                 <div style={detailRow}>
-                  <span style={muted}>Transaction ID</span>
-                  <span style={{ fontFamily: "monospace" }}>{txn.txn_id}</span>
+                  <span style={detailLabel}>Transaction ID</span>
+                  <span style={txnIdStyle}>{txn.txn_id}</span>
                 </div>
 
                 <div style={detailRow}>
-                  <span style={muted}>Title</span>
-                  <span>{txn.title || "—"}</span>
+                  <span style={detailLabel}>Title</span>
+                  <span style={detailValue}>{txn.title || "—"}</span>
                 </div>
 
                 <div style={detailRow}>
-                  <span style={muted}>Description</span>
-                  <span>{txn.description || "—"}</span>
+                  <span style={detailLabel}>Description</span>
+                  <span style={detailValue}>{txn.description || "—"}</span>
                 </div>
 
                 <div style={detailRow}>
-                  <span style={muted}>Amount</span>
+                  <span style={detailLabel}>Amount</span>
                   <span style={{
-                    fontSize: 24,
-                    fontWeight: 600,
-                    color: txn.type === "credit" ? "#34d399" : "#f87171"
+                    ...amountStyle,
+                    color: txn.type === "credit" ? colors.accentGreen : colors.accentRed
                   }}>
-                    {txn.type === "credit" ? "+" : "-"}₹{txn.amount}
+                    {txn.type === "credit" ? "+" : "-"}₹{Number(txn.amount).toLocaleString()}
                   </span>
                 </div>
 
                 <div style={detailRow}>
-                  <span style={muted}>Type</span>
+                  <span style={detailLabel}>Type</span>
                   <span style={{
-                    padding: "4px 12px",
-                    borderRadius: "20px",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    background: txn.type === "credit" ? "#34d399" : "#f87171",
-                    color: "#000"
+                    ...typeBadge,
+                    background: txn.type === "credit" ? `${colors.accentGreen}20` : `${colors.accentRed}20`,
+                    color: txn.type === "credit" ? colors.accentGreen : colors.accentRed,
                   }}>
                     {txn.type === "credit" ? "Credit" : "Debit"}
                   </span>
                 </div>
 
                 <div style={detailRow}>
-                  <span style={muted}>Date</span>
-                  <span>{new Date(txn.created_at).toLocaleString()}</span>
+                  <span style={detailLabel}>Date</span>
+                  <span style={detailMuted}>
+                    {new Date(txn.created_at).toLocaleString()}
+                  </span>
                 </div>
               </div>
 
               {qrDataUrl && (
-                <div style={{ textAlign: "center" }}>
-                  <img src={qrDataUrl} alt="QR Code" style={{ borderRadius: 8 }} />
-                  <p style={{ ...muted, marginTop: 8 }}>Transaction QR</p>
+                <div style={qrContainer}>
+                  <img src={qrDataUrl} alt="QR Code" style={qrImage} />
+                  <p style={qrLabel}>Transaction QR</p>
                 </div>
               )}
+            </div>
+          )}
+
+          {txn && (
+            <div style={verifiedBadge}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                <polyline points="22 4 12 14.01 9 11.01"/>
+              </svg>
+              Transaction Verified
             </div>
           )}
         </div>
@@ -139,23 +198,213 @@ function AdminQRScanner() {
 
 /* ---------- styles ---------- */
 
-const cardStyle = {
-  background: "#111827",
-  border: "1px solid #1f2933",
-  borderRadius: "10px",
-  padding: "20px"
+const headerSection = {
+  display: "flex",
+  alignItems: "center",
+  gap: spacing.md,
+  marginBottom: spacing.xl,
+};
+
+const headerIcon = {
+  width: "48px",
+  height: "48px",
+  borderRadius: borderRadius.md,
+  background: `linear-gradient(135deg, ${colors.accentPurple}20, ${colors.accentBlue}20)`,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  color: colors.accentPurple,
+};
+
+const pageTitle = {
+  fontSize: "28px",
+  fontWeight: 700,
+  color: colors.textPrimary,
+  margin: 0,
+};
+
+const pageSubtitle = {
+  fontSize: "14px",
+  color: colors.textMuted,
+  margin: 0,
+  marginTop: "4px",
+};
+
+const contentGrid = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: spacing.lg,
+};
+
+const scannerCard = {
+  ...themeCard,
+};
+
+const scannerHeader = {
+  display: "flex",
+  alignItems: "center",
+  gap: spacing.sm,
+  marginBottom: spacing.md,
+};
+
+const pulsingDot = {
+  width: "8px",
+  height: "8px",
+  borderRadius: "50%",
+  background: colors.accentGreen,
+  animation: "pulse 2s ease-in-out infinite",
+};
+
+const scannerStatus = {
+  fontSize: "13px",
+  color: colors.textSecondary,
+  fontWeight: 500,
+};
+
+const scannerArea = {
+  borderRadius: borderRadius.md,
+  overflow: "hidden",
+};
+
+const scannerHint = {
+  fontSize: "13px",
+  color: colors.textMuted,
+  textAlign: "center",
+  marginTop: spacing.md,
+  marginBottom: 0,
+};
+
+const resultCard = {
+  ...themeCard,
+};
+
+const resultTitle = {
+  display: "flex",
+  alignItems: "center",
+  gap: spacing.sm,
+  fontSize: "16px",
+  fontWeight: 600,
+  color: colors.textPrimary,
+  margin: 0,
+  marginBottom: spacing.lg,
+  paddingBottom: spacing.md,
+  borderBottom: `1px solid ${colors.border}`,
+};
+
+const errorBox = {
+  display: "flex",
+  alignItems: "center",
+  gap: spacing.sm,
+  padding: spacing.md,
+  background: `${colors.accentRed}15`,
+  border: `1px solid ${colors.accentRed}30`,
+  borderRadius: borderRadius.md,
+  color: colors.accentRed,
+  fontSize: "14px",
+};
+
+const placeholderBox = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: spacing.xxl,
+  color: colors.textMuted,
+};
+
+const placeholderText = {
+  marginTop: spacing.md,
+  fontSize: "14px",
+  textAlign: "center",
+};
+
+const detailsLayout = {
+  display: "flex",
+  gap: spacing.lg,
+};
+
+const detailsContainer = {
+  flex: 1,
+  display: "flex",
+  flexDirection: "column",
+  gap: spacing.md,
 };
 
 const detailRow = {
   display: "flex",
   flexDirection: "column",
-  gap: 4,
-  marginBottom: 16
+  gap: "4px",
 };
 
-const muted = {
-  color: "#9ca3af",
-  fontSize: 14
+const detailLabel = {
+  fontSize: "12px",
+  color: colors.textMuted,
+  textTransform: "uppercase",
+  letterSpacing: "0.5px",
+};
+
+const detailValue = {
+  fontSize: "14px",
+  color: colors.textPrimary,
+};
+
+const detailMuted = {
+  fontSize: "14px",
+  color: colors.textSecondary,
+};
+
+const txnIdStyle = {
+  fontFamily: "monospace",
+  fontSize: "13px",
+  background: colors.bgSecondary,
+  padding: "6px 10px",
+  borderRadius: borderRadius.sm,
+  color: colors.textSecondary,
+  display: "inline-block",
+};
+
+const amountStyle = {
+  fontSize: "24px",
+  fontWeight: 700,
+};
+
+const typeBadge = {
+  padding: "4px 10px",
+  borderRadius: borderRadius.full,
+  fontSize: "12px",
+  fontWeight: 600,
+  textTransform: "uppercase",
+  letterSpacing: "0.5px",
+  display: "inline-block",
+};
+
+const qrContainer = {
+  textAlign: "center",
+};
+
+const qrImage = {
+  borderRadius: borderRadius.md,
+};
+
+const qrLabel = {
+  fontSize: "13px",
+  color: colors.textMuted,
+  marginTop: spacing.sm,
+};
+
+const verifiedBadge = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: spacing.sm,
+  marginTop: spacing.lg,
+  padding: spacing.md,
+  background: `${colors.accentGreen}10`,
+  border: `1px solid ${colors.accentGreen}30`,
+  borderRadius: borderRadius.md,
+  color: colors.accentGreen,
+  fontSize: "14px",
+  fontWeight: 500,
 };
 
 export default AdminQRScanner;

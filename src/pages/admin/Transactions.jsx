@@ -5,6 +5,7 @@ import { generateTxnId } from "../../utils/txn";
 import QRCode from "qrcode";
 import { Spinner } from "../../components/Spinner";
 import { useToast } from "../../context/ToastContext";
+import { colors, spacing, borderRadius, cardStyle as themeCard, inputStyle as themeInput, buttonPrimary, buttonSecondary, tableStyles } from "../../styles/theme";
 
 function AdminTransactions() {
   const [transactions, setTransactions] = useState([]);
@@ -14,6 +15,7 @@ function AdminTransactions() {
   const [showQR, setShowQR] = useState(null);
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [editingTxn, setEditingTxn] = useState(null);
+  const { addToast } = useToast();
 
   const [form, setForm] = useState({
     title: "",
@@ -57,7 +59,7 @@ function AdminTransactions() {
     e.preventDefault();
 
     if (!form.title || !form.amount) {
-      alert("Please fill required fields");
+      addToast("Please fill required fields", "error");
       return;
     }
 
@@ -107,9 +109,10 @@ function AdminTransactions() {
     try {
       const { error } = await supabase.from("transactions").delete().eq("id", id);
       if (error) throw error;
+      addToast("Transaction deleted", "success");
       fetchTransactions();
     } catch (err) {
-      alert("Failed to delete: " + err.message);
+      addToast("Failed to delete transaction", "error");
     }
   };
 
@@ -128,7 +131,7 @@ function AdminTransactions() {
     e.preventDefault();
 
     if (!form.title || !form.amount) {
-      alert("Please fill required fields");
+      addToast("Please fill required fields", "error");
       return;
     }
 
@@ -149,10 +152,10 @@ function AdminTransactions() {
 
       setForm({ title: "", description: "", amount: "", type: "credit" });
       setEditingTxn(null);
+      addToast("Transaction updated successfully!", "success");
       fetchTransactions();
     } catch (err) {
-      console.error(err);
-      alert("Failed to update transaction");
+      addToast("Failed to update transaction", "error");
     } finally {
       setSubmitting(false);
     }
@@ -165,9 +168,15 @@ function AdminTransactions() {
 
   return (
     <AdminLayout>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-        <h1 style={{ fontSize: 28 }}>Transactions</h1>
-        <button onClick={() => setShowForm(!showForm)} style={primaryBtn}>
+      {/* Header (icon removed) */}
+      <div style={headerContainer}>
+        <div style={headerSection}>
+          <div>
+            <h1 style={pageTitle}>Transactions</h1>
+            <p style={pageSubtitle}>Manage all financial transactions</p>
+          </div>
+        </div>
+        <button onClick={() => { setShowForm(!showForm); setEditingTxn(null); }} style={primaryBtn}>
           {showForm ? "Cancel" : "+ Add Transaction"}
         </button>
       </div>
@@ -176,70 +185,91 @@ function AdminTransactions() {
       {showQR && (
         <div style={modalOverlay} onClick={() => setShowQR(null)}>
           <div style={modalContent} onClick={e => e.stopPropagation()}>
-            <h3 style={{ marginBottom: 16 }}>Transaction QR Code</h3>
-            <p style={muted}>Txn ID: {showQR}</p>
-            <img src={qrDataUrl} alt="QR Code" style={{ marginTop: 16, borderRadius: 8 }} />
-            <button onClick={() => setShowQR(null)} style={{ ...secondaryBtn, marginTop: 16 }}>Close</button>
+            <div style={modalHeader}>
+              <h3 style={modalTitle}>Transaction QR Code</h3>
+              <button onClick={() => setShowQR(null)} style={closeBtn}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18"/>
+                  <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+            <p style={txnIdDisplay}>{showQR}</p>
+            <img src={qrDataUrl} alt="QR Code" style={qrImage} />
+            <p style={qrHint}>Scan to verify transaction</p>
           </div>
         </div>
       )}
 
       {/* Add Form */}
       {showForm && !editingTxn && (
-        <div style={cardStyle}>
-          <h3 style={{ marginBottom: 16 }}>New Transaction</h3>
+        <div style={{ ...themeCard, marginBottom: spacing.lg }}>
+          <h3 style={formTitle}>New Transaction</h3>
           <form onSubmit={handleSubmit}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-              <input
-                name="title"
-                placeholder="Title *"
-                value={form.title}
+            <div style={formGrid}>
+              <div style={formGroup}>
+                <label style={labelStyle}>Title <span style={requiredStar}>*</span></label>
+                <input
+                  name="title"
+                  placeholder="Transaction title"
+                  value={form.title}
+                  onChange={handleChange}
+                  style={inputStyle}
+                />
+              </div>
+              <div style={formGroup}>
+                <label style={labelStyle}>Amount (₹) <span style={requiredStar}>*</span></label>
+                <input
+                  name="amount"
+                  type="number"
+                  placeholder="5000"
+                  value={form.amount}
+                  onChange={handleChange}
+                  style={inputStyle}
+                />
+              </div>
+            </div>
+
+            <div style={formGroup}>
+              <label style={labelStyle}>Description</label>
+              <textarea
+                name="description"
+                placeholder="Optional description"
+                value={form.description}
                 onChange={handleChange}
-                style={inputStyle}
-              />
-              <input
-                name="amount"
-                type="number"
-                placeholder="Amount (₹) *"
-                value={form.amount}
-                onChange={handleChange}
-                style={inputStyle}
+                rows={3}
+                style={{ ...inputStyle, resize: "vertical" }}
               />
             </div>
 
-            <textarea
-              name="description"
-              placeholder="Description (optional)"
-              value={form.description}
-              onChange={handleChange}
-              rows={3}
-              style={{ ...inputStyle, resize: "none", marginTop: 16 }}
-            />
+            <div style={formActions}>
+              <div style={radioGroup}>
+                <label style={radioLabel}>
+                  <input
+                    type="radio"
+                    name="type"
+                    value="credit"
+                    checked={form.type === "credit"}
+                    onChange={handleChange}
+                    style={radioInput}
+                  />
+                  <span style={{ ...radioText, color: colors.accentGreen }}>Credit (Add Funds)</span>
+                </label>
 
-            <div style={{ display: "flex", gap: 16, marginTop: 16, alignItems: "center" }}>
-              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-                <input
-                  type="radio"
-                  name="type"
-                  value="credit"
-                  checked={form.type === "credit"}
-                  onChange={handleChange}
-                />
-                <span style={{ color: "#34d399" }}>Credit (Add Funds)</span>
-              </label>
+                <label style={radioLabel}>
+                  <input
+                    type="radio"
+                    name="type"
+                    value="debit"
+                    checked={form.type === "debit"}
+                    onChange={handleChange}
+                    style={radioInput}
+                  />
+                  <span style={{ ...radioText, color: colors.accentRed }}>Debit (Deduct Funds)</span>
+                </label>
+              </div>
 
-              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-                <input
-                  type="radio"
-                  name="type"
-                  value="debit"
-                  checked={form.type === "debit"}
-                  onChange={handleChange}
-                />
-                <span style={{ color: "#f87171" }}>Debit (Deduct Funds)</span>
-              </label>
-
-              <button type="submit" disabled={submitting} style={{ ...primaryBtn, marginLeft: "auto" }}>
+              <button type="submit" disabled={submitting} style={{ ...primaryBtn, opacity: submitting ? 0.7 : 1 }}>
                 {submitting ? "Creating..." : "Create Transaction"}
               </button>
             </div>
@@ -249,65 +279,78 @@ function AdminTransactions() {
 
       {/* Edit Form */}
       {editingTxn && (
-        <div style={cardStyle}>
-          <h3 style={{ marginBottom: 16 }}>Edit Transaction</h3>
-          <p style={{ ...muted, marginBottom: 16 }}>Txn ID: {editingTxn.txn_id}</p>
+        <div style={{ ...themeCard, marginBottom: spacing.lg }}>
+          <h3 style={formTitle}>Edit Transaction</h3>
+          <p style={txnIdLabel}>Txn ID: <span style={txnIdCode}>{editingTxn.txn_id}</span></p>
           <form onSubmit={handleUpdate}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-              <input
-                name="title"
-                placeholder="Title *"
-                value={form.title}
+            <div style={formGrid}>
+              <div style={formGroup}>
+                <label style={labelStyle}>Title <span style={requiredStar}>*</span></label>
+                <input
+                  name="title"
+                  placeholder="Transaction title"
+                  value={form.title}
+                  onChange={handleChange}
+                  style={inputStyle}
+                />
+              </div>
+              <div style={formGroup}>
+                <label style={labelStyle}>Amount (₹) <span style={requiredStar}>*</span></label>
+                <input
+                  name="amount"
+                  type="number"
+                  placeholder="5000"
+                  value={form.amount}
+                  onChange={handleChange}
+                  style={inputStyle}
+                />
+              </div>
+            </div>
+
+            <div style={formGroup}>
+              <label style={labelStyle}>Description</label>
+              <textarea
+                name="description"
+                placeholder="Optional description"
+                value={form.description}
                 onChange={handleChange}
-                style={inputStyle}
-              />
-              <input
-                name="amount"
-                type="number"
-                placeholder="Amount (₹) *"
-                value={form.amount}
-                onChange={handleChange}
-                style={inputStyle}
+                rows={3}
+                style={{ ...inputStyle, resize: "vertical" }}
               />
             </div>
 
-            <textarea
-              name="description"
-              placeholder="Description (optional)"
-              value={form.description}
-              onChange={handleChange}
-              rows={3}
-              style={{ ...inputStyle, resize: "none", marginTop: 16 }}
-            />
+            <div style={formActions}>
+              <div style={radioGroup}>
+                <label style={radioLabel}>
+                  <input
+                    type="radio"
+                    name="type"
+                    value="credit"
+                    checked={form.type === "credit"}
+                    onChange={handleChange}
+                    style={radioInput}
+                  />
+                  <span style={{ ...radioText, color: colors.accentGreen }}>Credit (Add Funds)</span>
+                </label>
 
-            <div style={{ display: "flex", gap: 16, marginTop: 16, alignItems: "center" }}>
-              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-                <input
-                  type="radio"
-                  name="type"
-                  value="credit"
-                  checked={form.type === "credit"}
-                  onChange={handleChange}
-                />
-                <span style={{ color: "#34d399" }}>Credit (Add Funds)</span>
-              </label>
+                <label style={radioLabel}>
+                  <input
+                    type="radio"
+                    name="type"
+                    value="debit"
+                    checked={form.type === "debit"}
+                    onChange={handleChange}
+                    style={radioInput}
+                  />
+                  <span style={{ ...radioText, color: colors.accentRed }}>Debit (Deduct Funds)</span>
+                </label>
+              </div>
 
-              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-                <input
-                  type="radio"
-                  name="type"
-                  value="debit"
-                  checked={form.type === "debit"}
-                  onChange={handleChange}
-                />
-                <span style={{ color: "#f87171" }}>Debit (Deduct Funds)</span>
-              </label>
-
-              <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+              <div style={{ display: "flex", gap: spacing.sm }}>
                 <button type="button" onClick={cancelEdit} style={secondaryBtn}>
                   Cancel
                 </button>
-                <button type="submit" disabled={submitting} style={primaryBtn}>
+                <button type="submit" disabled={submitting} style={{ ...primaryBtn, opacity: submitting ? 0.7 : 1 }}>
                   {submitting ? "Saving..." : "Save Changes"}
                 </button>
               </div>
@@ -317,64 +360,74 @@ function AdminTransactions() {
       )}
 
       {/* Transactions Table */}
-      <div style={{ ...cardStyle, marginTop: 20 }}>
+      <div style={themeCard}>
         {loading ? (
           <Spinner />
         ) : transactions.length === 0 ? (
-          <p style={muted}>No transactions yet. Add your first transaction above.</p>
+          <div style={emptyState}>
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke={colors.textMuted} strokeWidth="1.5">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+            </svg>
+            <p style={emptyTitle}>No transactions yet</p>
+            <p style={emptySubtitle}>Add your first transaction above</p>
+          </div>
         ) : (
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
-              <tr style={theadStyle}>
-                <th style={th}>Date</th>
-                <th style={th}>Title</th>
-                <th style={th}>Txn ID</th>
-                <th style={{ ...th, textAlign: "right" }}>Amount</th>
-                <th style={{ ...th, textAlign: "center" }}>Actions</th>
+              <tr>
+                <th style={tableStyles.header}>Date</th>
+                <th style={tableStyles.header}>Title</th>
+                <th style={tableStyles.header}>Txn ID</th>
+                <th style={{ ...tableStyles.header, textAlign: "right" }}>Amount</th>
+                <th style={{ ...tableStyles.header, textAlign: "center" }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {transactions.map(txn => (
-                <tr key={txn.id} style={rowStyle}>
-                  <td style={tdMuted}>
+                <tr key={txn.id} style={tableStyles.row}>
+                  <td style={tableStyles.cellMuted}>
                     {new Date(txn.created_at).toLocaleDateString()}
                   </td>
-                  <td style={td}>
+                  <td style={tableStyles.cell}>
                     <div>{txn.title || "—"}</div>
-                    {txn.description && <div style={{ ...muted, fontSize: 12 }}>{txn.description}</div>}
+                    {txn.description && <div style={descriptionText}>{txn.description}</div>}
                   </td>
-                  <td style={tdMuted}>{txn.txn_id}</td>
+                  <td style={tableStyles.cellMuted}>
+                    <span style={txnIdCode}>{txn.txn_id}</span>
+                  </td>
                   <td style={{
-                    ...td,
+                    ...tableStyles.cell,
                     textAlign: "right",
-                    color: txn.type === "credit" ? "#34d399" : "#f87171",
-                    fontWeight: 500
+                    color: txn.type === "credit" ? colors.accentGreen : colors.accentRed,
+                    fontWeight: 600
                   }}>
-                    {txn.type === "credit" ? "+" : "-"}₹{txn.amount}
+                    {txn.type === "credit" ? "+" : "-"}₹{Number(txn.amount).toLocaleString()}
                   </td>
-                  <td style={{ ...td, textAlign: "center" }}>
-                    <button onClick={() => handleShowQR(txn.txn_id)} style={iconBtn} title="View QR">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="3" y="3" width="7" height="7"></rect>
-                        <rect x="14" y="3" width="7" height="7"></rect>
-                        <rect x="3" y="14" width="7" height="7"></rect>
-                        <rect x="14" y="14" width="7" height="7"></rect>
-                      </svg>
-                    </button>
-                    <button onClick={() => handleEdit(txn)} style={{ ...iconBtn, marginLeft: 8 }} title="Edit">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                      </svg>
-                    </button>
-                    <button onClick={() => handleDelete(txn.id)} style={{ ...iconBtn, marginLeft: 8 }} title="Delete">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="3 6 5 6 21 6"></polyline>
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                        <line x1="10" y1="11" x2="10" y2="17"></line>
-                        <line x1="14" y1="11" x2="14" y2="17"></line>
-                      </svg>
-                    </button>
+                  <td style={{ ...tableStyles.cell, textAlign: "center" }}>
+                    <div style={actionBtns}>
+                      <button onClick={() => handleShowQR(txn.txn_id)} style={iconBtn} title="View QR">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="3" y="3" width="7" height="7"/>
+                          <rect x="14" y="3" width="7" height="7"/>
+                          <rect x="3" y="14" width="7" height="7"/>
+                          <rect x="14" y="14" width="7" height="7"/>
+                        </svg>
+                      </button>
+                      <button onClick={() => handleEdit(txn)} style={iconBtn} title="Edit">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                        </svg>
+                      </button>
+                      <button onClick={() => handleDelete(txn.id)} style={{ ...iconBtn, color: colors.accentRed }} title="Delete">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="3 6 5 6 21 6"/>
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                          <line x1="10" y1="11" x2="10" y2="17"/>
+                          <line x1="14" y1="11" x2="14" y2="17"/>
+                        </svg>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -388,66 +441,175 @@ function AdminTransactions() {
 
 /* ---------- styles ---------- */
 
-const cardStyle = {
-  background: "#111827",
-  border: "1px solid #1f2933",
-  borderRadius: "10px",
-  padding: "20px"
+const headerContainer = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  marginBottom: spacing.lg,
 };
 
-const inputStyle = {
-  width: "100%",
-  padding: "12px",
-  borderRadius: "8px",
-  border: "1px solid #1f2933",
-  background: "#0b0e14",
-  color: "white",
-  fontSize: 14
+const headerSection = {
+  display: "flex",
+  alignItems: "center",
+  gap: spacing.md,
+};
+
+const headerIcon = {
+  width: "48px",
+  height: "48px",
+  borderRadius: borderRadius.md,
+  background: `linear-gradient(135deg, ${colors.accentGreen}20, ${colors.accentBlue}20)`,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  color: colors.accentGreen,
+};
+
+const pageTitle = {
+  fontSize: "28px",
+  fontWeight: 700,
+  color: colors.textPrimary,
+  margin: 0,
+};
+
+const pageSubtitle = {
+  fontSize: "14px",
+  color: colors.textMuted,
+  margin: 0,
+  marginTop: "4px",
 };
 
 const primaryBtn = {
-  background: "#4ade80",
-  color: "#000",
-  border: "none",
-  padding: "10px 18px",
-  borderRadius: "8px",
-  cursor: "pointer",
-  fontWeight: 600
+  ...buttonPrimary,
 };
 
 const secondaryBtn = {
-  background: "#1f2933",
-  color: "white",
-  border: "none",
-  padding: "10px 18px",
-  borderRadius: "8px",
-  cursor: "pointer"
+  ...buttonSecondary,
+};
+
+const formTitle = {
+  fontSize: "18px",
+  fontWeight: 600,
+  color: colors.textPrimary,
+  marginBottom: spacing.lg,
+};
+
+const formGrid = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: spacing.md,
+};
+
+const formGroup = {
+  marginBottom: spacing.md,
+};
+
+const labelStyle = {
+  display: "block",
+  fontSize: "13px",
+  fontWeight: 500,
+  color: colors.textSecondary,
+  marginBottom: spacing.xs,
+  textTransform: "uppercase",
+  letterSpacing: "0.5px",
+};
+
+const requiredStar = {
+  color: colors.accentRed,
+};
+
+const inputStyle = {
+  ...themeInput,
+  width: "100%",
+  boxSizing: "border-box",
+};
+
+const formActions = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  marginTop: spacing.md,
+};
+
+const radioGroup = {
+  display: "flex",
+  gap: spacing.lg,
+};
+
+const radioLabel = {
+  display: "flex",
+  alignItems: "center",
+  gap: spacing.sm,
+  cursor: "pointer",
+};
+
+const radioInput = {
+  accentColor: colors.accentGreen,
+};
+
+const radioText = {
+  fontSize: "14px",
+  fontWeight: 500,
+};
+
+const txnIdLabel = {
+  color: colors.textMuted,
+  fontSize: "14px",
+  marginBottom: spacing.md,
+};
+
+const txnIdCode = {
+  fontFamily: "monospace",
+  fontSize: "13px",
+  background: colors.bgSecondary,
+  padding: "4px 8px",
+  borderRadius: borderRadius.sm,
+  color: colors.textSecondary,
+};
+
+const descriptionText = {
+  color: colors.textMuted,
+  fontSize: "12px",
+  marginTop: "4px",
+};
+
+const actionBtns = {
+  display: "flex",
+  gap: spacing.xs,
+  justifyContent: "center",
 };
 
 const iconBtn = {
   background: "transparent",
   border: "none",
   cursor: "pointer",
-  padding: "6px",
-  borderRadius: "4px",
-  color: "#9ca3af",
+  padding: "8px",
+  borderRadius: borderRadius.sm,
+  color: colors.textMuted,
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  transition: "color 0.2s"
+  transition: "color 0.2s, background 0.2s",
 };
 
-const theadStyle = {
-  color: "#9ca3af",
-  textAlign: "left",
-  borderBottom: "1px solid #1f2933"
+const emptyState = {
+  textAlign: "center",
+  padding: spacing.xxl,
+  color: colors.textMuted,
 };
 
-const th = { paddingBottom: 10, fontWeight: 500 };
-const rowStyle = { borderBottom: "1px solid #1f2933" };
-const td = { padding: "12px 0" };
-const tdMuted = { ...td, color: "#9ca3af", fontSize: 14 };
-const muted = { color: "#9ca3af", fontSize: 14 };
+const emptyTitle = {
+  fontSize: "18px",
+  fontWeight: 600,
+  color: colors.textSecondary,
+  marginTop: spacing.md,
+};
+
+const emptySubtitle = {
+  fontSize: "14px",
+  color: colors.textMuted,
+  marginTop: spacing.xs,
+};
 
 const modalOverlay = {
   position: "fixed",
@@ -455,20 +617,63 @@ const modalOverlay = {
   left: 0,
   right: 0,
   bottom: 0,
-  background: "rgba(0,0,0,0.8)",
+  background: "rgba(0,0,0,0.85)",
   display: "flex",
   justifyContent: "center",
   alignItems: "center",
-  zIndex: 1000
+  zIndex: 1000,
+  backdropFilter: "blur(4px)",
 };
 
 const modalContent = {
-  background: "#111827",
-  border: "1px solid #1f2933",
-  borderRadius: "12px",
-  padding: "24px",
+  ...themeCard,
   textAlign: "center",
-  maxWidth: 320
+  maxWidth: 340,
+  position: "relative",
+};
+
+const modalHeader = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  marginBottom: spacing.md,
+};
+
+const modalTitle = {
+  fontSize: "18px",
+  fontWeight: 600,
+  color: colors.textPrimary,
+  margin: 0,
+};
+
+const closeBtn = {
+  background: "transparent",
+  border: "none",
+  cursor: "pointer",
+  color: colors.textMuted,
+  padding: "4px",
+  display: "flex",
+};
+
+const txnIdDisplay = {
+  fontFamily: "monospace",
+  fontSize: "14px",
+  color: colors.textSecondary,
+  background: colors.bgSecondary,
+  padding: "8px 12px",
+  borderRadius: borderRadius.sm,
+  marginBottom: spacing.md,
+};
+
+const qrImage = {
+  borderRadius: borderRadius.md,
+  marginBottom: spacing.md,
+};
+
+const qrHint = {
+  fontSize: "13px",
+  color: colors.textMuted,
+  margin: 0,
 };
 
 export default AdminTransactions;
