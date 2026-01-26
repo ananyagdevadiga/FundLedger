@@ -78,6 +78,18 @@ a, button {
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* Hide browser native password reveal buttons (Edge/IE) */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}
+
+/* In case any browser shows a native reveal icon, make sure password inputs leave space */
+input[type="password"] {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
 /* Table styles */
 table {
   width: 100%;

@@ -15,6 +15,12 @@ function AdminTransactions() {
   const [showQR, setShowQR] = useState(null);
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [editingTxn, setEditingTxn] = useState(null);
+
+  // Delete confirmation modal state
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmTargetId, setConfirmTargetId] = useState(null);
+  const [confirmMsg, setConfirmMsg] = useState("");
+
   const { addToast } = useToast();
 
   const [form, setForm] = useState({
@@ -81,11 +87,7 @@ function AdminTransactions() {
 
       if (error) throw error;
 
-      // Generate QR for the new transaction
-      const qrUrl = await QRCode.toDataURL(txnId);
-      setQrDataUrl(qrUrl);
-      setShowQR(txnId);
-
+      // Do not auto-open QR modal after creation; user can click "View QR" from the list
       setForm({ title: "", description: "", amount: "", type: "credit" });
       setShowForm(false);
       addToast("Transaction created successfully!", "success");
@@ -97,14 +99,31 @@ function AdminTransactions() {
     }
   };
 
-  const handleShowQR = async (txnId) => {
-    const qrUrl = await QRCode.toDataURL(txnId);
+  const handleShowQR = async (txn) => {
+    const payload = JSON.stringify({
+      txn_id: txn.txn_id,
+      title: txn.title,
+      description: txn.description || "",
+      amount: txn.amount,
+      type: txn.type,
+      date: txn.created_at,
+    });
+    const qrUrl = await QRCode.toDataURL(payload, { width: 200, margin: 2, color: { dark: "#000", light: "#fff" } });
     setQrDataUrl(qrUrl);
-    setShowQR(txnId);
+    setShowQR(txn.txn_id);
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this transaction?")) return;
+  // Open confirmation modal for transaction delete
+  const handleDelete = (id, title) => {
+    setConfirmTargetId(id);
+    setConfirmMsg(title ? `Delete transaction "${title}"?` : "Delete this transaction?");
+    setConfirmOpen(true);
+  };
+
+  // Perform deletion after confirmation
+  const performDelete = async () => {
+    const id = confirmTargetId;
+    setConfirmOpen(false);
 
     try {
       const { error } = await supabase.from("transactions").delete().eq("id", id);
@@ -113,8 +132,11 @@ function AdminTransactions() {
       fetchTransactions();
     } catch (err) {
       addToast("Failed to delete transaction", "error");
+    } finally {
+      setConfirmTargetId(null);
+      setConfirmMsg("");
     }
-  };
+  }; 
 
   const handleEdit = (txn) => {
     setEditingTxn(txn);
@@ -186,22 +208,34 @@ function AdminTransactions() {
         <div style={modalOverlay} onClick={() => setShowQR(null)}>
           <div style={modalContent} onClick={e => e.stopPropagation()}>
             <div style={modalHeader}>
-              <h3 style={modalTitle}>Transaction QR Code</h3>
-              <button onClick={() => setShowQR(null)} style={closeBtn}>
+              <button onClick={(e) => { e.stopPropagation(); setShowQR(null); }} aria-label="Close QR modal" style={closeBtn}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <line x1="18" y1="6" x2="6" y2="18"/>
                   <line x1="6" y1="6" x2="18" y2="18"/>
                 </svg>
               </button>
             </div>
-            <p style={txnIdDisplay}>{showQR}</p>
             <img src={qrDataUrl} alt="QR Code" style={qrImage} />
             <p style={qrHint}>Scan to verify transaction</p>
           </div>
         </div>
       )}
 
-      {/* Add Form */}
+      {/* Delete confirmation modal */}
+      {confirmOpen && (
+        <div style={confirmOverlay} onClick={() => setConfirmOpen(false)}>
+          <div style={confirmBox} onClick={(e) => e.stopPropagation()}>
+            <h3 style={confirmTitle}>Confirm Delete</h3>
+            <p style={confirmMsgStyle}>{confirmMsg}</p>
+            <div style={confirmActions}>
+              <button style={confirmCancelBtn} onClick={() => setConfirmOpen(false)}>Cancel</button>
+              <button style={confirmPrimaryBtn} onClick={performDelete}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Form */} 
       {showForm && !editingTxn && (
         <div style={{ ...themeCard, marginBottom: spacing.lg }}>
           <h3 style={formTitle}>New Transaction</h3>
@@ -377,7 +411,6 @@ function AdminTransactions() {
               <tr>
                 <th style={tableStyles.header}>Date</th>
                 <th style={tableStyles.header}>Title</th>
-                <th style={tableStyles.header}>Txn ID</th>
                 <th style={{ ...tableStyles.header, textAlign: "right" }}>Amount</th>
                 <th style={{ ...tableStyles.header, textAlign: "center" }}>Actions</th>
               </tr>
@@ -392,9 +425,7 @@ function AdminTransactions() {
                     <div>{txn.title || "—"}</div>
                     {txn.description && <div style={descriptionText}>{txn.description}</div>}
                   </td>
-                  <td style={tableStyles.cellMuted}>
-                    <span style={txnIdCode}>{txn.txn_id}</span>
-                  </td>
+
                   <td style={{
                     ...tableStyles.cell,
                     textAlign: "right",
@@ -405,7 +436,7 @@ function AdminTransactions() {
                   </td>
                   <td style={{ ...tableStyles.cell, textAlign: "center" }}>
                     <div style={actionBtns}>
-                      <button onClick={() => handleShowQR(txn.txn_id)} style={iconBtn} title="View QR">
+                      <button onClick={() => handleShowQR(txn)} style={iconBtn} title="View QR">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <rect x="3" y="3" width="7" height="7"/>
                           <rect x="14" y="3" width="7" height="7"/>
@@ -419,7 +450,7 @@ function AdminTransactions() {
                           <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                         </svg>
                       </button>
-                      <button onClick={() => handleDelete(txn.id)} style={{ ...iconBtn, color: colors.accentRed }} title="Delete">
+                      <button onClick={() => handleDelete(txn.id, txn.title)} style={{ ...iconBtn, color: colors.accentRed }} title="Delete">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <polyline points="3 6 5 6 21 6"/>
                           <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
@@ -628,15 +659,15 @@ const modalOverlay = {
 const modalContent = {
   ...themeCard,
   textAlign: "center",
-  maxWidth: 340,
+  maxWidth: 380,
   position: "relative",
+  padding: spacing.lg,
+  paddingTop: spacing.xl,
 };
 
 const modalHeader = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  marginBottom: spacing.md,
+  // header kept for layout / accessibility but no content expected
+  height: 0,
 };
 
 const modalTitle = {
@@ -647,6 +678,9 @@ const modalTitle = {
 };
 
 const closeBtn = {
+  position: 'absolute',
+  left: spacing.sm,
+  top: spacing.sm,
   background: "transparent",
   border: "none",
   cursor: "pointer",
@@ -666,14 +700,77 @@ const txnIdDisplay = {
 };
 
 const qrImage = {
+  width: 200,
+  height: 200,
+  padding: 4,
+  background: '#fff',
   borderRadius: borderRadius.md,
+  display: 'inline-block',
   marginBottom: spacing.md,
+  boxShadow: '0 10px 30px rgba(0,0,0,0.18)'
 };
 
 const qrHint = {
   fontSize: "13px",
   color: colors.textMuted,
   margin: 0,
+};
+
+/* Confirmation modal styles */
+const confirmOverlay = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(0,0,0,0.6)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  zIndex: 1100,
+};
+
+const confirmBox = {
+  ...themeCard,
+  maxWidth: 520,
+  width: "100%",
+  padding: spacing.lg,
+  textAlign: "left",
+};
+
+const confirmTitle = {
+  fontSize: "18px",
+  fontWeight: 700,
+  margin: 0,
+  marginBottom: spacing.sm,
+};
+
+const confirmMsgStyle = {
+  fontSize: "14px",
+  color: colors.textSecondary,
+  marginBottom: spacing.md,
+};
+
+const confirmActions = {
+  display: "flex",
+  gap: spacing.sm,
+  justifyContent: "flex-end",
+};
+
+const confirmPrimaryBtn = {
+  background: colors.accentRed,
+  color: "#fff",
+  border: "none",
+  padding: `${spacing.sm} ${spacing.md}`,
+  borderRadius: borderRadius.md,
+  cursor: "pointer",
+  fontWeight: 600,
+};
+
+const confirmCancelBtn = {
+  background: "transparent",
+  color: colors.textSecondary,
+  border: `1px solid ${colors.border}`,
+  padding: `${spacing.sm} ${spacing.md}`,
+  borderRadius: borderRadius.md,
+  cursor: "pointer",
 };
 
 export default AdminTransactions;

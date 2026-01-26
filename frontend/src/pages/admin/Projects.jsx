@@ -11,6 +11,12 @@ function Projects() {
   const [submitting, setSubmitting] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
+
+  // Delete confirmation modal state
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState(null);
+  const [deleteMsg, setDeleteMsg] = useState("");
+
   const { addToast } = useToast();
 
   const [form, setForm] = useState({
@@ -101,9 +107,17 @@ function Projects() {
     setShowForm(true);
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Delete this project?")) return;
+  // Open confirmation modal for project delete
+  const handleDelete = (id, title) => {
+    setDeleteTargetId(id);
+    setDeleteMsg(title ? `Delete project "${title}"?` : "Delete this project?");
+    setConfirmDeleteOpen(true);
+  };
 
+  // Perform deletion after confirmation
+  const performDelete = async () => {
+    const id = deleteTargetId;
+    setConfirmDeleteOpen(false);
     try {
       const { error } = await supabase.from("projects").delete().eq("id", id);
       if (error) throw error;
@@ -111,8 +125,11 @@ function Projects() {
       fetchProjects();
     } catch (err) {
       addToast("Failed to delete project", "error");
+    } finally {
+      setDeleteTargetId(null);
+      setDeleteMsg("");
     }
-  };
+  }; 
 
   const cancelEdit = () => {
     setForm({ title: "", description: "" });
@@ -135,7 +152,21 @@ function Projects() {
         </button>
       </div>
 
-      {/* Form */}
+      {/* Delete confirmation modal */}
+      {confirmDeleteOpen && (
+        <div style={confirmOverlay} onClick={() => setConfirmDeleteOpen(false)}>
+          <div style={confirmBox} onClick={(e) => e.stopPropagation()}>
+            <h3 style={confirmTitle}>Confirm Delete</h3>
+            <p style={confirmMsgStyle}>{deleteMsg}</p>
+            <div style={confirmActions}>
+              <button style={confirmCancelBtn} onClick={() => setConfirmDeleteOpen(false)}>Cancel</button>
+              <button style={confirmPrimaryBtn} onClick={performDelete}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Form */} 
       {showForm && (
         <div style={{ ...themeCard, marginBottom: spacing.lg }}>
           <h3 style={formTitle}>
@@ -226,7 +257,7 @@ function Projects() {
                     </svg>
                     Edit
                   </button>
-                  <button onClick={() => handleDelete(project.id)} style={deleteBtn}>
+                  <button onClick={() => handleDelete(project.id, project.title)} style={deleteBtn}> 
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <polyline points="3 6 5 6 21 6"/>
                       <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
@@ -438,6 +469,63 @@ const emptySubtitle = {
   fontSize: "14px",
   color: colors.textMuted,
   marginTop: spacing.xs,
+};
+
+/* Confirmation modal styles */
+const confirmOverlay = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(0,0,0,0.6)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  zIndex: 1100,
+};
+
+const confirmBox = {
+  ...themeCard,
+  maxWidth: 520,
+  width: "100%",
+  padding: spacing.lg,
+  textAlign: "left",
+};
+
+const confirmTitle = {
+  fontSize: "18px",
+  fontWeight: 700,
+  margin: 0,
+  marginBottom: spacing.sm,
+};
+
+const confirmMsgStyle = {
+  fontSize: "14px",
+  color: colors.textSecondary,
+  marginBottom: spacing.md,
+};
+
+const confirmActions = {
+  display: "flex",
+  gap: spacing.sm,
+  justifyContent: "flex-end",
+};
+
+const confirmPrimaryBtn = {
+  background: colors.accentRed,
+  color: "#fff",
+  border: "none",
+  padding: `${spacing.sm} ${spacing.md}`,
+  borderRadius: borderRadius.md,
+  cursor: "pointer",
+  fontWeight: 600,
+};
+
+const confirmCancelBtn = {
+  background: "transparent",
+  color: colors.textSecondary,
+  border: `1px solid ${colors.border}`,
+  padding: `${spacing.sm} ${spacing.md}`,
+  borderRadius: borderRadius.md,
+  cursor: "pointer",
 };
 
 export default Projects;

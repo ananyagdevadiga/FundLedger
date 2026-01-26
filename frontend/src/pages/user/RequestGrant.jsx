@@ -92,7 +92,7 @@ function RequestGrant() {
           title: form.title,
           description: form.description,
           amount: Number(form.amount),
-          phone: form.phone,
+          phone: form.phone ? `+91 ${(form.phone || '').replace(/\D/g, '').slice(-10)}` : null,
           email: form.email,
           status: "pending"
         }
@@ -151,9 +151,11 @@ function RequestGrant() {
             )}
 
             <div style={formGroup}>
-              <label style={labelStyle}>Grant Title <span style={requiredStar}>*</span></label>
+              <label htmlFor="grant-title" style={labelStyle}>Grant Title <span style={requiredStar}>*</span></label>
               <input
+                id="grant-title"
                 name="title"
+                autoComplete="off"
                 placeholder="E.g., Community Workshop Funding"
                 value={form.title}
                 onChange={handleChange}
@@ -187,14 +189,23 @@ function RequestGrant() {
               </div>
 
               <div style={formGroup}>
-                <label style={labelStyle}>Phone</label>
-                <input
-                  name="phone"
-                  placeholder="+91 XXXXX XXXXX"
-                  value={form.phone}
-                  onChange={handleChange}
-                  style={inputStyle}
-                />
+                <label htmlFor="grant-phone" style={labelStyle}>Phone</label>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <span style={{ padding: '8px 10px', background: colors.bgSecondary, borderRadius: 8, color: colors.textMuted, fontSize: 13 }}>+91</span>
+                  <input
+                    id="grant-phone"
+                    name="phone"
+                    type="tel"
+                    inputMode="numeric"
+                    autoComplete="tel"
+                    placeholder="1234567890"
+                    value={form.phone}
+                    onChange={(e) => setForm(prev => ({ ...prev, phone: (e.target.value || '').replace(/\D/g, '').slice(0, 10) }))}
+                    maxLength={10}
+                    pattern="[0-9]{10}"
+                    style={{ ...inputStyle, width: '100%' }}
+                  />
+                </div>
               </div>
             </div>
 

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import UserLayout from "../../layouts/UserLayout";
 import { supabase } from "../../supabase";
 import { Spinner } from "../../components/Spinner";
-import { colors, borderRadius } from "../../styles/theme";
+import { colors, borderRadius, spacing } from "../../styles/theme";
 import QRCode from "qrcode";
 
 function Transactions() {
@@ -221,11 +221,12 @@ function Transactions() {
               left: 0,
               right: 0,
               bottom: 0,
-              background: "rgba(0,0,0,0.7)",
+              background: "rgba(0,0,0,0.85)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               zIndex: 1000,
+              backdropFilter: 'blur(4px)'
             }}
             onClick={closeModal}
           >
@@ -233,12 +234,25 @@ function Transactions() {
               style={{
                 background: colors.bgCard,
                 borderRadius: borderRadius.lg,
-                padding: 16,
+                padding: spacing.lg,
                 border: `1px solid ${colors.border}`,
+                textAlign: 'center',
+                maxWidth: 380,
+                position: 'relative',
+                paddingTop: spacing.xl,
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <img src={qrModal.qrImage} alt="QR Code" style={{ borderRadius: 8, display: "block" }} />
+              <button onClick={(e) => { e.stopPropagation(); closeModal(); }} aria-label="Close QR modal" style={{ position: 'absolute', left: spacing.sm, top: spacing.sm, background: 'transparent', border: 'none', padding: 4, color: colors.textMuted }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18"/>
+                  <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+              <div>
+                <img src={qrModal.qrImage} alt="Transaction QR" style={{ width: 200, height: 200, padding: 4, background: '#fff', borderRadius: borderRadius.md, display: 'inline-block', marginBottom: spacing.md, boxShadow: '0 10px 30px rgba(0,0,0,0.18)' }} />
+              </div>
+              <p style={{ fontSize: 13, color: colors.textMuted, margin: 0 }}>Scan to verify transaction</p>
             </div>
           </div>
         )}

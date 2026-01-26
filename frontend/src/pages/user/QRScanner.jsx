@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 import UserLayout from "../../layouts/UserLayout";
 import { Html5QrcodeScanner } from "html5-qrcode";
 import { supabase } from "../../supabase";
+import QRCode from "qrcode";
 import { colors, spacing, borderRadius, cardStyle as themeCard } from "../../styles/theme";
 
 function QRScanner() {
   const [txn, setTxn] = useState(null);
   const [error, setError] = useState(null);
+  const [qrDataUrl, setQrDataUrl] = useState("");
   const [scanning, setScanning] = useState(true);
 
   useEffect(() => {
@@ -52,14 +54,25 @@ function QRScanner() {
         }
 
         // Use the data from QR code (already verified it exists)
-        setTxn({
+        const parsedTxn = {
           txn_id: txnData.txn_id,
           title: txnData.title,
           description: txnData.description,
           amount: txnData.amount,
           type: txnData.type,
           created_at: txnData.date
+        };
+        setTxn(parsedTxn);
+        // Generate QR for display
+        const payload = JSON.stringify({
+          txn_id: parsedTxn.txn_id,
+          title: parsedTxn.title,
+          description: parsedTxn.description || "",
+          amount: parsedTxn.amount,
+          type: parsedTxn.type,
+          date: parsedTxn.created_at
         });
+        setQrDataUrl(await QRCode.toDataURL(payload, { width: 200, margin: 2, color: { dark: "#000", light: "#fff" } }));
       } else {
         // Legacy format: just txn_id string, fetch from database
         const { data, error } = await supabase
@@ -74,6 +87,16 @@ function QRScanner() {
         }
 
         setTxn(data);
+        // Generate QR for display
+        const payloadLegacy = JSON.stringify({
+          txn_id: data.txn_id,
+          title: data.title,
+          description: data.description || "",
+          amount: data.amount,
+          type: data.type,
+          date: data.created_at
+        });
+        setQrDataUrl(await QRCode.toDataURL(payloadLegacy, { width: 200, margin: 2, color: { dark: "#000", light: "#fff" } }));
       }
     } catch (err) {
       console.error(err);
@@ -141,62 +164,64 @@ function QRScanner() {
           )}
 
           {txn && (
-            <div style={detailsContainer}>
-              <div style={detailRow}>
-                <span style={detailLabel}>Transaction ID</span>
-                <span style={txnIdStyle}>{txn.txn_id}</span>
-              </div>
-              
-              <div style={detailRow}>
-                <span style={detailLabel}>Title</span>
-                <span style={detailValue}>{txn.title || "—"}</span>
-              </div>
-              
-              <div style={detailRow}>
-                <span style={detailLabel}>Description</span>
-                <span style={detailValue}>{txn.description || "—"}</span>
-              </div>
-              
-              <div style={detailRow}>
-                <span style={detailLabel}>Amount</span>
-                <span style={{
-                  ...amountStyle,
-                  color: txn.type === "credit" ? colors.accentGreen : colors.accentRed
-                }}>
-                  {txn.type === "credit" ? "+" : "-"}₹{Number(txn.amount).toLocaleString()}
-                </span>
-              </div>
-              
-              <div style={detailRow}>
-                <span style={detailLabel}>Type</span>
-                <span style={{
-                  ...typeBadge,
-                  background: txn.type === "credit" ? `${colors.accentGreen}20` : `${colors.accentRed}20`,
-                  color: txn.type === "credit" ? colors.accentGreen : colors.accentRed,
-                }}>
-                  {txn.type === "credit" ? "Credit" : "Debit"}
-                </span>
-              </div>
-              
-              <div style={detailRow}>
-                <span style={detailLabel}>Date</span>
-                <span style={detailMuted}>
-                  {new Date(txn.created_at).toLocaleDateString("en-US", {
-                    year: "numeric",
-                    month: "short",
-                    day: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit"
-                  })}
-                </span>
-              </div>
+            <div style={detailsLayout}>
+              <div style={detailsContainer}>
+                <div style={detailRow}>
+                  <span style={detailLabel}>Transaction ID</span>
+                  <span style={txnIdStyle}>{txn.txn_id}</span>
+                </div>
+                
+                <div style={detailRow}>
+                  <span style={detailLabel}>Title</span>
+                  <span style={detailValue}>{txn.title || "—"}</span>
+                </div>
+                
+                <div style={detailRow}>
+                  <span style={detailLabel}>Description</span>
+                  <span style={detailValue}>{txn.description || "—"}</span>
+                </div>
+                
+                <div style={detailRow}>
+                  <span style={detailLabel}>Amount</span>
+                  <span style={{
+                    ...amountStyle,
+                    color: txn.type === "credit" ? colors.accentGreen : colors.accentRed
+                  }}>
+                    {txn.type === "credit" ? "+" : "-"}₹{Number(txn.amount).toLocaleString()}
+                  </span>
+                </div>
+                
+                <div style={detailRow}>
+                  <span style={detailLabel}>Type</span>
+                  <span style={{
+                    ...typeBadge,
+                    background: txn.type === "credit" ? `${colors.accentGreen}20` : `${colors.accentRed}20`,
+                    color: txn.type === "credit" ? colors.accentGreen : colors.accentRed,
+                  }}>
+                    {txn.type === "credit" ? "Credit" : "Debit"}
+                  </span>
+                </div>
+                
+                <div style={detailRow}>
+                  <span style={detailLabel}>Date</span>
+                  <span style={detailMuted}>
+                    {new Date(txn.created_at).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit"
+                    })}
+                  </span>
+                </div>
 
-              <div style={verifiedBadge}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                  <polyline points="22 4 12 14.01 9 11.01"/>
-                </svg>
-                Transaction Verified
+                <div style={verifiedBadge}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                    <polyline points="22 4 12 14.01 9 11.01"/>
+                  </svg>
+                  Transaction Verified
+                </div>
               </div>
             </div>
           )}
@@ -327,6 +352,10 @@ const placeholderText = {
   marginTop: spacing.md,
   fontSize: "14px",
   textAlign: "center",
+};
+
+const detailsLayout = {
+  display: "block",
 };
 
 const detailsContainer = {

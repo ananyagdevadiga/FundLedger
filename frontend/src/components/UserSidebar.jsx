@@ -7,7 +7,7 @@ import { colors, borderRadius } from "../styles/theme";
 function UserSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, role, signOut } = useAuth();
+  const { user, role, signOut, profile } = useAuth();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const { addToast } = useToast();
@@ -282,7 +282,7 @@ function UserSidebar() {
                 fontWeight: 600,
                 color: "#fff",
               }}>
-                {user.email?.charAt(0).toUpperCase()}{user.email?.charAt(1)?.toUpperCase() || ''}
+                { (profile?.name || user.email || 'U').toString().charAt(0).toUpperCase() }
               </div>
               <div style={{ flex: 1, overflow: "hidden" }}>
                 <p style={{ 
@@ -294,7 +294,7 @@ function UserSidebar() {
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                 }}>
-                  {user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'}
+                  {profile?.name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'}
                 </p>
                 <p style={{ 
                   color: colors.textMuted, 

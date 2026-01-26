@@ -3,6 +3,8 @@ import AdminLayout from "../../layouts/AdminLayout";
 import { supabase } from "../../supabase";
 import { Link } from "react-router-dom";
 import { colors, spacing, borderRadius, cardStyle as themeCard, tableStyles } from "../../styles/theme";
+import { IndianRupee } from "lucide-react";
+import QRCode from "qrcode";
 
 function AdminHome() {
   const [stats, setStats] = useState({
@@ -14,6 +16,7 @@ function AdminHome() {
   });
   const [recentTxns, setRecentTxns] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [qrModal, setQrModal] = useState({ open: false, txn: null, qrImage: '' });
 
   useEffect(() => {
     fetchDashboardData();
@@ -24,7 +27,7 @@ function AdminHome() {
       // Fetch transactions
       const { data: txnData } = await supabase
         .from("transactions")
-        .select("id, txn_id, title, amount, type, created_at")
+        .select("id, txn_id, title, description, amount, type, created_at")
         .order("created_at", { ascending: false });
 
       // Calculate total fund
@@ -66,6 +69,31 @@ function AdminHome() {
     }
   };
 
+  const handleShowQR = async (txn) => {
+    try {
+      const payload = JSON.stringify({
+        txn_id: txn.txn_id,
+        title: txn.title,
+        description: txn.description || "",
+        amount: txn.amount,
+        type: txn.type,
+        date: txn.created_at,
+      });
+
+      const qrImage = await QRCode.toDataURL(payload, {
+        width: 200,
+        margin: 2,
+        color: { dark: "#000", light: "#fff" },
+      });
+
+      setQrModal({ open: true, txn, qrImage });
+    } catch (err) {
+      console.error("Failed to generate QR:", err);
+    }
+  };
+
+  const closeQrModal = () => setQrModal({ open: false, txn: null, qrImage: '' });
+
   return (
     <AdminLayout>
       {/* Header (icon removed) */}
@@ -85,13 +113,11 @@ function AdminHome() {
             <div style={statCard}>
               <div style={statHeader}>
                 <span style={statIcon}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={colors.accentGreen} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <text x="2" y="17" fontSize="18" fill={colors.accentGreen}>₹</text>
-                  </svg>
+                  <IndianRupee size={20} color={colors.accentGreen} strokeWidth={2} />
                 </span>
                 <span style={statLabel}>Total Fund</span>
               </div>
-              <h2 style={{ ...statValue, color: colors.accentGreen }}>₹{stats.totalFund.toLocaleString()}</h2>
+              <h2 style={{ ...statValue, color: colors.accentGreen }}>{stats.totalFund.toLocaleString()}</h2>
             </div>
 
             <div style={statCard}>
@@ -214,10 +240,7 @@ function AdminHome() {
                       <td style={tableStyles.cell}>{txn.title || "—"}</td>
                       <td style={tableStyles.cell}>
                         <button
-                          onClick={() => {
-                            // Show QR code modal (implement as needed)
-                            window.alert(`Txn ID: ${txn.txn_id}`);
-                          }}
+                          onClick={() => handleShowQR(txn)}
                           title="View QR Code"
                           style={{
                             background: colors.bgSecondary,
@@ -254,6 +277,22 @@ function AdminHome() {
             )}
           </div>
         </>
+      )}
+
+      {/* QR Modal */}
+      {qrModal.open && (
+        <div style={modalOverlay} onClick={closeQrModal}>
+          <div style={modalContent} onClick={e => e.stopPropagation()}>
+            <button onClick={closeQrModal} style={closeBtn} aria-label="Close QR modal">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+            <img src={qrModal.qrImage} alt="Transaction QR" style={qrImage} />
+            <p style={qrHint}>Scan to verify transaction</p>
+          </div>
+        </div>
       )}
     </AdminLayout>
   );
@@ -398,6 +437,58 @@ const txnIdCell = {
 const muted = {
   color: colors.textMuted,
   fontSize: "14px",
+};
+
+const modalOverlay = {
+  position: "fixed",
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  background: "rgba(0,0,0,0.85)",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  zIndex: 1000,
+  backdropFilter: "blur(4px)",
+};
+
+const modalContent = {
+  ...themeCard,
+  textAlign: "center",
+  maxWidth: 380,
+  position: "relative",
+  padding: spacing.lg,
+  paddingTop: spacing.xl,
+};
+
+const closeBtn = {
+  position: 'absolute',
+  left: spacing.sm,
+  top: spacing.sm,
+  background: "transparent",
+  border: "none",
+  cursor: "pointer",
+  color: colors.textMuted,
+  padding: "4px",
+  display: "flex",
+};
+
+const qrImage = {
+  width: 200,
+  height: 200,
+  padding: 4,
+  background: '#fff',
+  borderRadius: borderRadius.md,
+  display: 'inline-block',
+  marginBottom: spacing.md,
+  boxShadow: '0 10px 30px rgba(0,0,0,0.18)'
+};
+
+const qrHint = {
+  fontSize: "13px",
+  color: colors.textMuted,
+  margin: 0,
 };
 
 export default AdminHome;

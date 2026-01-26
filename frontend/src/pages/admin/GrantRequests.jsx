@@ -11,6 +11,23 @@ function GrantRequests() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("pending");
   const [processingId, setProcessingId] = useState(null);
+
+  // Format phone display consistently (+91 1234567890)
+  const formatPhone = (p) => {
+    if (!p) return "—";
+    const s = String(p).trim();
+    if (s.startsWith('+91 ')) return s;
+    if (s.startsWith('+91')) return `+91 ${s.slice(3)}`;
+    return s;
+  };
+
+  // Confirmation modal state for approve/reject actions
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmAction, setConfirmAction] = useState(""); // 'approve' | 'reject'
+  const [confirmRequest, setConfirmRequest] = useState(null);
+  const [confirmExtra, setConfirmExtra] = useState(false); // used for approve & add to projects
+  const [confirmMsg, setConfirmMsg] = useState("");
+
   const { addToast } = useToast();
 
   useEffect(() => {
@@ -47,13 +64,20 @@ function GrantRequests() {
     }
   };
 
-  const handleApprove = async (request, addToProjects = false) => {
-    const confirmMsg = addToProjects 
+  // Show confirmation modal for approve
+  const handleApprove = (request, addToProjects = false) => {
+    const msg = addToProjects
       ? `Approve grant of ₹${request.amount} for "${request.title}" and add to Projects?`
       : `Approve grant of ₹${request.amount} for "${request.title}"?`;
-    
-    if (!window.confirm(confirmMsg)) return;
+    setConfirmMsg(msg);
+    setConfirmAction("approve");
+    setConfirmRequest(request);
+    setConfirmExtra(addToProjects);
+    setConfirmOpen(true);
+  };
 
+  // Execute approve after confirmation
+  const performApprove = async (request, addToProjects = false) => {
     try {
       setProcessingId(request.id);
 
@@ -104,9 +128,17 @@ function GrantRequests() {
     }
   };
 
-  const handleReject = async (request) => {
-    if (!window.confirm(`Reject grant request "${request.title}"?`)) return;
+  // Show confirmation modal for reject
+  const handleReject = (request) => {
+    setConfirmMsg(`Reject grant request "${request.title}"?`);
+    setConfirmAction("reject");
+    setConfirmRequest(request);
+    setConfirmExtra(false);
+    setConfirmOpen(true);
+  };
 
+  // Execute reject after confirmation
+  const performReject = async (request) => {
     try {
       setProcessingId(request.id);
 
@@ -168,6 +200,32 @@ function GrantRequests() {
         </div>
       </div>
 
+      {/* Confirmation modal */}
+      {confirmOpen && (
+        <div style={confirmOverlay} onClick={() => setConfirmOpen(false)}>
+          <div style={confirmBox} onClick={(e) => e.stopPropagation()}>
+            <h3 style={confirmTitle}>{confirmAction === "approve" ? "Confirm Approve" : "Confirm Reject"}</h3>
+            <p style={confirmMsgStyle}>{confirmMsg}</p>
+            <div style={confirmActions}>
+              <button style={confirmCancelBtn} onClick={() => setConfirmOpen(false)}>Cancel</button>
+              <button
+                style={confirmPrimaryBtn}
+                onClick={async () => {
+                  setConfirmOpen(false);
+                  if (confirmAction === "approve") {
+                    await performApprove(confirmRequest, confirmExtra);
+                  } else if (confirmAction === "reject") {
+                    await performReject(confirmRequest);
+                  }
+                }}
+              >
+                {confirmAction === "approve" ? "Approve" : "Reject"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Filter Tabs */}
       <div style={filterTabs}>
         {["pending", "approved", "rejected", "all"].map(tab => (
@@ -216,9 +274,6 @@ function GrantRequests() {
         <Spinner />
       ) : requests.length === 0 ? (
         <div style={emptyState}>
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke={colors.textMuted} strokeWidth="1.5">
-            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-          </svg>
           <p style={emptyTitle}>No {filter === "all" ? "" : filter} grant requests</p>
           <p style={emptySubtitle}>
             {filter === "pending" ? "All caught up! No pending requests to review." : "Requests will appear here when submitted."}
@@ -264,7 +319,7 @@ function GrantRequests() {
                     </svg>
                     Phone
                   </span>
-                  <span style={detailValue}>{req.phone || "—"}</span>
+                  <span style={detailValue}>{formatPhone(req.phone)}</span>
                 </div>
               </div>
 
@@ -537,6 +592,63 @@ const emptySubtitle = {
   fontSize: "14px",
   color: colors.textMuted,
   marginTop: spacing.xs,
+};
+
+/* Confirmation modal styles */
+const confirmOverlay = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(0,0,0,0.6)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  zIndex: 1100,
+};
+
+const confirmBox = {
+  ...themeCard,
+  maxWidth: 520,
+  width: "100%",
+  padding: spacing.lg,
+  textAlign: "left",
+};
+
+const confirmTitle = {
+  fontSize: "18px",
+  fontWeight: 700,
+  margin: 0,
+  marginBottom: spacing.sm,
+};
+
+const confirmMsgStyle = {
+  fontSize: "14px",
+  color: colors.textSecondary,
+  marginBottom: spacing.md,
+};
+
+const confirmActions = {
+  display: "flex",
+  gap: spacing.sm,
+  justifyContent: "flex-end",
+};
+
+const confirmPrimaryBtn = {
+  background: colors.accentRed,
+  color: "#fff",
+  border: "none",
+  padding: `${spacing.sm} ${spacing.md}`,
+  borderRadius: borderRadius.md,
+  cursor: "pointer",
+  fontWeight: 600,
+};
+
+const confirmCancelBtn = {
+  background: "transparent",
+  color: colors.textSecondary,
+  border: `1px solid ${colors.border}`,
+  padding: `${spacing.sm} ${spacing.md}`,
+  borderRadius: borderRadius.md,
+  cursor: "pointer",
 };
 
 export default GrantRequests;

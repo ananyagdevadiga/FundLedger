@@ -54,8 +54,16 @@ function AdminQRScanner() {
         return;
       }
 
-      // Generate QR for display
-      const qrUrl = await QRCode.toDataURL(data.txn_id);
+      // Generate QR for display (JSON payload parity)
+      const payload = JSON.stringify({
+        txn_id: data.txn_id,
+        title: data.title,
+        description: data.description || "",
+        amount: data.amount,
+        type: data.type,
+        date: data.created_at,
+      });
+      const qrUrl = await QRCode.toDataURL(payload, { width: 200, margin: 2, color: { dark: "#000", light: "#fff" } });
       setQrDataUrl(qrUrl);
       setTxn(data);
     } catch (err) {
@@ -171,13 +179,6 @@ function AdminQRScanner() {
                   </span>
                 </div>
               </div>
-
-              {qrDataUrl && (
-                <div style={qrContainer}>
-                  <img src={qrDataUrl} alt="QR Code" style={qrImage} />
-                  <p style={qrLabel}>Transaction QR</p>
-                </div>
-              )}
             </div>
           )}
 
@@ -319,12 +320,10 @@ const placeholderText = {
 };
 
 const detailsLayout = {
-  display: "flex",
-  gap: spacing.lg,
+  display: "block",
 };
 
 const detailsContainer = {
-  flex: 1,
   display: "flex",
   flexDirection: "column",
   gap: spacing.md,
@@ -332,20 +331,22 @@ const detailsContainer = {
 
 const detailRow = {
   display: "flex",
-  flexDirection: "column",
-  gap: "4px",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  gap: spacing.md,
 };
 
 const detailLabel = {
-  fontSize: "12px",
+  fontSize: "13px",
   color: colors.textMuted,
-  textTransform: "uppercase",
-  letterSpacing: "0.5px",
 };
 
 const detailValue = {
   fontSize: "14px",
   color: colors.textPrimary,
+  textAlign: "right",
+  maxWidth: "60%",
+  wordBreak: "break-word",
 };
 
 const detailMuted = {
@@ -357,14 +358,13 @@ const txnIdStyle = {
   fontFamily: "monospace",
   fontSize: "13px",
   background: colors.bgSecondary,
-  padding: "6px 10px",
+  padding: "4px 8px",
   borderRadius: borderRadius.sm,
   color: colors.textSecondary,
-  display: "inline-block",
 };
 
 const amountStyle = {
-  fontSize: "24px",
+  fontSize: "18px",
   fontWeight: 700,
 };
 
@@ -378,18 +378,8 @@ const typeBadge = {
   display: "inline-block",
 };
 
-const qrContainer = {
-  textAlign: "center",
-};
-
 const qrImage = {
   borderRadius: borderRadius.md,
-};
-
-const qrLabel = {
-  fontSize: "13px",
-  color: colors.textMuted,
-  marginTop: spacing.sm,
 };
 
 const verifiedBadge = {

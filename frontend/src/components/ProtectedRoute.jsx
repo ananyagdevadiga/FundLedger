@@ -4,9 +4,10 @@ import { Spinner } from "./Spinner";
 
 // For admin-only routes
 export function AdminRoute({ children }) {
-  const { user, role, loading } = useAuth();
+  const { user, role, loading, roleLoading } = useAuth();
 
-  if (loading) {
+  // Show blocking spinner only if we truly don't have any role info yet.
+  if (loading || (roleLoading && !role)) {
     return (
       <div style={{ 
         minHeight: "100vh", 

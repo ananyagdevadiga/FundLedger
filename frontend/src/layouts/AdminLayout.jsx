@@ -14,7 +14,7 @@ function AdminLayout({ children }) {
       </div>
     </div>
   );
-}
+} 
 
 const layoutContainer = {
   display: "flex",
@@ -33,6 +33,8 @@ const mainContent = {
 
 const contentArea = {
   padding: spacing.lg,
+  paddingLeft: 100,
+  paddingRight: 100,
   flex: 1,
   overflowY: "auto",
 };
